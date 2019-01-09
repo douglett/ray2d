@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>ray2d</title>
+</head>
+<body>
+
+<canvas id="mycanvas-1"></canvas>
+<canvas id="mycanvas-2"></canvas>
+
+<style type="text/css">
+canvas {
+	border: 1px solid black;
+	width: 400px;
+	height: 400px;
+	image-rendering: pixelated;
+	margin: 5px;
+}
+</style>
+
+</body>
+</html>
+
+
+<script type="text/javascript">
+
+const canvas1 = document.querySelector('#mycanvas-1');
+const canvas2 = document.querySelector('#mycanvas-2');
+const w = canvas1.width = canvas2.width = 200;
+const h = canvas1.height = canvas2.height = 200;
+const ctx1 = canvas1.getContext('2d');
+const ctx2 = canvas2.getContext('2d');
+const tilew = 20;
+
+const map = { 
+	w: 10,
+	h: 10,
+	data: [
+		1,1,1,1,1,1,1,1,1,1,
+		1,1,0,0,0,0,0,0,0,1,
+		1,2,0,0,0,0,0,0,0,1,
+		1,2,0,0,0,0,0,0,0,1,
+		1,2,3,0,0,0,0,0,0,1,
+		1,2,0,0,0,0,0,0,0,1,
+		1,2,0,0,0,0,0,3,0,1,
+		1,0,0,0,0,0,3,3,0,1,
+		1,0,0,0,0,0,0,0,0,1,
+		1,1,1,1,1,1,1,1,1,1,
+	]
+};
+
+let angle = 0;
+let posx = 5;
+let posy = 5;
+
+function paint1() {
+	// draw map
+	for (let i = 0; i < map.h; i++)
+	for (let j = 0; j < map.w; j++) {
+		ctx1.fillStyle = getCol( map.data[i * 10 + j], 1 );
+		ctx1.fillRect(j*tilew, i*tilew, tilew, tilew);
+	}
+
+	// draw line
+	ctx1.strokeStyle = 'red';
+	let ray = cast(map, posx, posy, angle);
+	line(ctx1, posx*tilew, posy*tilew, angle, ray.length*tilew);
+}
+
+function paint2() {
+	let FOV = 50;
+	let step = 1;
+
+	ctx2.fillStyle = 'white';
+	// ctx2.strokeStyle = 'black';
+	ctx2.clearRect(0, 0, w, h);
+	ctx2.fillStyle = 'black';
+
+	for (let x = 0; x < w; x += step) {
+		//calculate ray position and direction
+		let cameraX = FOV / w * x;
+		let angle2 = angle - FOV/2 + cameraX;
+
+		// do cast
+		let ray = cast(map, posx, posy, angle2);
+
+		//Calculate height of line to draw on screen
+		let lineHeight = (h / ray.length)|0;
+
+		//calculate lowest and highest pixel to fill in current stripe
+		let drawStart = (h/2 - lineHeight/2)|0;
+		// let drawEnd = (h/2 + lineHeight/2)|0;
+
+		// draw wall line
+		ctx2.fillStyle = getCol(ray.tile, ray.side);
+		ctx2.fillRect(x, drawStart, step, lineHeight);
+	}
+}
+
+
+function getCol(tile, light) {
+	switch (tile) {
+	case 1:   return light ? 'darkgray' : 'black';
+	case 2:   return light ? 'blue' : 'darkblue';
+	case 3:   return light ? 'red' : 'darkred';
+	default:  return 'white';
+	}
+}
+
+
+function line(ctx, x, y, a, ln) {
+	let x2 = x + Math.cos(a * Math.PI / 180) * ln;
+	let y2 = y + Math.sin(a * Math.PI / 180) * ln;
+	ctx.beginPath();
+	ctx.moveTo(x, y);
+	ctx.lineTo(x2, y2);
+	ctx.stroke();
+}
+
+
+function cast(map, posX, posY, angle) {
+	let ray = cast.ray = cast.ray || {};
+	//calculate ray position and direction
+	let rayDirX = Math.cos(angle * Math.PI / 180);
+	let rayDirY = Math.sin(angle * Math.PI / 180);
+	//which box of the map we're in
+	let mapX = posX|0;
+	let mapY = posY|0;
+	//length of ray from current position to next x or y-side
+	let sideDistX;
+	let sideDistY;
+	//length of ray from one x or y-side to next x or y-side
+	let deltaDistX = Math.abs(1 / rayDirX);
+	let deltaDistY = Math.abs(1 / rayDirY);
+	let perpWallDist;
+	//what direction to step in x or y-direction (either +1 or -1)
+	let stepX;
+	let stepY;
+	// 
+	let hit = 0; //was there a wall hit?
+	let side; //was a NS or a EW wall hit?
+
+	//calculate step and initial sideDist
+	if (rayDirX < 0) {
+		stepX = -1;
+		sideDistX = (posX - mapX) * deltaDistX;
+	}
+	else {
+		stepX = 1;
+		sideDistX = (mapX + 1.0 - posX) * deltaDistX;
+	}
+	if (rayDirY < 0) {
+		stepY = -1;
+		sideDistY = (posY - mapY) * deltaDistY;
+	}
+	else {
+		stepY = 1;
+		sideDistY = (mapY + 1.0 - posY) * deltaDistY;
+	}
+
+	//perform DDA
+	while (hit == 0) {
+		//jump to next map square, OR in x-direction, OR in y-direction
+		if (sideDistX < sideDistY) {
+			sideDistX += deltaDistX;
+			mapX += stepX;
+			side = 0;
+		}
+		else {
+			sideDistY += deltaDistY;
+			mapY += stepY;
+			side = 1;
+		}
+		//Check if ray has hit a wall
+		// if (map.data[mapY * map.w + mapX] > 0) hit = 1;
+		hit = map.data[mapY * map.w + mapX];
+  	}
+
+	//Calculate distance projected on camera direction (Euclidean distance will give fisheye effect!)
+	if (side == 0) perpWallDist = (mapX - posX + (1 - stepX) / 2) / rayDirX;
+	else           perpWallDist = (mapY - posY + (1 - stepY) / 2) / rayDirY;
+
+	ray.length = perpWallDist;
+	ray.side = side;
+	ray.tile = hit;
+	return ray;
+}
+
+
+function mainloop() {
+	angle += 1;
+	paint1();
+	paint2();
+	requestAnimationFrame(mainloop);
+}
+
+
+angle = 35;
+// paint();
+mainloop();
+
+</script>

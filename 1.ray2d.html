@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>ray2d</title>
+</head>
+<body>
+
+<canvas id="mycanvas"></canvas>
+
+<style type="text/css">
+#mycanvas {
+	border: 1px solid black;
+	width: 640px;
+	height: 480px;
+	image-rendering: pixelated;
+}
+</style>
+
+</body>
+</html>
+
+
+<script type="text/javascript">
+
+const canvas = document.querySelector('#mycanvas');
+const w = canvas.width = 320;
+const h = canvas.height = 240;
+const ctx = canvas.getContext('2d');
+const tilew = 20;
+
+const mapw = 10;
+const maph = 10;
+const map = [
+	1,1,1,1,1,1,1,1,1,1,
+	1,1,0,0,0,0,0,0,0,1,
+	1,1,0,0,0,0,0,0,0,1,
+	1,1,0,0,0,0,0,0,0,1,
+	1,1,1,0,0,0,0,0,0,1,
+	1,1,0,0,0,0,0,0,0,1,
+	1,1,0,0,0,0,0,0,0,1,
+	1,0,0,0,0,0,0,1,0,1,
+	1,0,0,0,0,0,0,0,0,1,
+	1,1,1,1,1,1,1,1,1,1,
+];
+
+let angle = 0;
+let posx = 5;
+let posy = 5;
+
+function paint() {
+	// draw map
+	for (let i = 0; i < 10; i++)
+	for (let j = 0; j < 10; j++) {
+		ctx.fillStyle = map[i*10+j] ? 'black' : 'white';
+		ctx.fillRect(j*tilew, i*tilew, tilew, tilew);
+	}
+
+	// draw line
+	ctx.strokeStyle = 'red';
+	// line(posx*tilew, posy*tilew, angle, 3*tilew);
+	let len = intersect2(posx, posy, angle);
+	line(posx*tilew, posy*tilew, angle, len*tilew);
+}
+
+function line(x, y, a, ln) {
+	let x2 = x + Math.cos(a * Math.PI / 180) * ln;
+	let y2 = y + Math.sin(a * Math.PI / 180) * ln;
+	ctx.beginPath();
+	ctx.moveTo(x, y);
+	ctx.lineTo(x2, y2);
+	ctx.stroke();
+}
+
+function intersect(x, y, a) {
+	let dx = Math.cos(a * Math.PI / 180);
+	let dy = Math.sin(a * Math.PI / 180);
+	let ln = 0;
+	// let c = 0;
+	while (ln < 100) {
+		// c++;
+		let x2 = x + dx * ln;
+		let y2 = y + dy * ln;
+		if (x2 < 0 || y2 < 0 || x2 > 10 || y2 > 10) break;
+		if (map[ (y2|0) * 10 + (x2|0) ]) break;
+		ln += 0.05;
+	}
+	// console.log(c)
+	return ln;
+}
+
+function intersect2(x, y, a) {
+	let dx = Math.cos(a * Math.PI / 180);
+	let dy = Math.sin(a * Math.PI / 180);
+	let xx = x;
+	let yy = y;
+	// let dirX = dx < 0 ? -1 : 1;
+	// let dirY = dy < 0 ? -1 : 1;
+
+	console.log(dx, dy)
+	// console.log(Math.abs(1/dx), Math.abs(1/dy))
+	// console.log(dx * Math.abs(1/dx), dy * Math.abs(1/dy))
+	// console.log(dx * Math.abs(1/dy), dy * Math.abs(1/dx))
+
+	while (true) {
+		if (xx < 0 || yy < 0 || xx > mapw-1 || yy > maph-1) break;
+		if (map[ (yy|0) * mapw + (xx|0) ]) break;
+
+		let nextx1 = Math.floor(xx + 1);
+		let nexty1 = y + (nextx1 - xx) * dy;
+		// console.log(nextx1, nexty1)
+		let nexty2 = Math.floor(yy + 1);
+		let nextx2 = x + (nexty2 - yy) * dx;
+		// console.log(nextx2, nexty2)
+
+		if (Math.hypot(nextx1, nexty1) < Math.hypot(nextx2, nexty2))
+			xx = nextx1, yy = nexty1;
+		else
+			xx = nextx2, yy = nexty2;
+
+		console.log(xx, yy)
+		console.log(xx|0, yy|0, map[ (yy|0) * mapw + (xx|0) ])
+
+		break;
+	}
+
+	return 5;
+}
+
+function mainloop() {
+	angle += 1;
+	paint();
+	requestAnimationFrame(mainloop);
+}
+
+
+angle = 35;
+paint();
+// intersect2(posx, posy, angle);
+
+// mainloop();
+
+</script>
